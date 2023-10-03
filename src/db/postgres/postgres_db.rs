@@ -196,7 +196,6 @@ impl Database {
         Ok(())
     }
 
-    /*
     pub async fn query(
         &self,
         query: &str,
@@ -224,7 +223,7 @@ impl Database {
         let rows = self.client.execute(query, params).await?;
         Ok(rows)
     }
-    */
+    
 
     async fn atomic_transaction(
         &mut self,
