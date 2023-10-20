@@ -151,6 +151,14 @@ impl Database {
                     .push((filename_without_extension.into(), contents.clone()));
             }
         }
+        
+            
+        // Sort `up` migrations in ascending alphabetical order
+        migrations.up.sort_by(|a, b| a.0.cmp(&b.0));
+        
+        // Sort `down` migrations in descending alphabetical order
+        migrations.down.sort_by(|a, b| b.0.cmp(&a.0));
+                
 
         return migrations;
     }
@@ -186,7 +194,8 @@ impl Database {
 
         let client = &mut self.client;
 
-        for down_migration in migrations.down.drain(..).rev() {
+        for down_migration in migrations.down.drain(..)
+         {
             println!("migrating {}", down_migration.0);
             let migration = Migration::new("migrations".to_string());
             // execute non existing migrations
