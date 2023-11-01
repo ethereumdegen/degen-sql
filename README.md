@@ -5,6 +5,12 @@ An opinionated postgres driver for rust and a light wrapper around tokio-postgre
 Easily establish a postgres connection and run migrations from a folder.  
  
  
+ 
+```
+
+cargo add degen-sql
+
+```
 
  
 #### A note about the migrate and rollback_full scripts 
