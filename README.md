@@ -1,12 +1,23 @@
 ## Degen Sql 
 
-An opinionated postgres driver for rust.  This package helps you easily establish a postgres  connection, run migrations from a folder, and run scripts.  
+An opinionated postgres driver for rust and a light wrapper around tokio-postgres. 
+
+Easily establish a postgres connection and run migrations from a folder.  
+ 
+ 
+
+ 
+#### A note about the migrate and rollback_full scripts 
+
+Since you cannot run scripts of dependencies, it is recommended that you copy and paste the 'scripts' folder from this repo into your project and then set up binaries in your Cargo.toml to run them. 
+
+Then, you will have a migrate script and a rollback script to use in your project. 
 
 
 
 
 ### Step 1.
-Set your env vars (can use .env)
+Set your env vars for postgres 
 
 ```
 
