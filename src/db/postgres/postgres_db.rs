@@ -55,7 +55,7 @@ impl Default for DatabaseCredentials {
 
 impl DatabaseCredentials {
     pub fn from_env() -> Self {
-        dotenv().expect(".env file not found");
+        //dotenv().expect(".env file not found"); //need to run this beforehand !! 
 
         Self {
             db_name: env::var("DB_NAME").unwrap_or("postgres".into()),
