@@ -96,3 +96,8 @@ async fn main() -> io::Result<()> {
 
 
 ```
+
+
+### Step 3 
+
+Build your migrations and models.  If you would like to see an example of this in action, see the [vibegraph project](https://github.com/ethereumdegen/vibegraph-rs)
