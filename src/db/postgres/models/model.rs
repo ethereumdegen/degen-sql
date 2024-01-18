@@ -11,6 +11,7 @@ pub enum PostgresModelError {
     #[error(transparent)]
     SerdeJson(#[from] SerdeJsonError),
 
-    #[error("Error parsing row for database")]
-    RowParseError,
+    #[error("Error parsing row for database: {0:?}")]
+    RowParseError(Option<String>),
+
 }

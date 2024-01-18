@@ -58,7 +58,7 @@ use std::env;
  
  
 async fn main() -> io::Result<()> {
-    dotenv().ok();  //you dont HAVE to load them in like this but this is typical 
+    dotenv().ok();  //you dont HAVE to load them in like this but this is typical. Do not forget this if you use ::from_env()!!
 
    
  
