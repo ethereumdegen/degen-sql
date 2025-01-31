@@ -90,11 +90,12 @@ struct PostgresInput<'a> {
 
 impl Database {
     pub async fn connect(
-        credentials: DatabaseCredentials,
+       // credentials: DatabaseCredentials,
+       conn_url: String, 
         migrations_dir_path: Option<String>,
     ) -> Result<Database, PostgresError> {
         // Define the connection URL.
-        let conn_url = credentials.build_connection_url();
+       // let conn_url = credentials.build_connection_url();
 
         info!("Connecting to db: {}", conn_url);
 
@@ -117,10 +118,10 @@ impl Database {
 
 
 
-    pub async fn reconnect(&mut self,  credentials: DatabaseCredentials ) -> Result<(), PostgresError> {
+    pub async fn reconnect(&mut self,  conn_url: String,    /*credentials: DatabaseCredentials */ ) -> Result<(), PostgresError> {
         let max_retries = 5;
         let mut attempt = 0;
-        let conn_url = credentials.build_connection_url();
+       // let conn_url = credentials.build_connection_url();
 
         while attempt < max_retries {
             info!("Attempt {}: Reconnecting to database...", attempt + 1);
