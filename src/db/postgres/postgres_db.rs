@@ -35,7 +35,7 @@ pub struct Database {
     pub migrations_dir_path: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct DatabaseCredentials {
     pub db_name: String,
     pub db_host: String,
