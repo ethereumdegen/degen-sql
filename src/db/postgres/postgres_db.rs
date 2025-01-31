@@ -1,3 +1,5 @@
+use tokio::time::Duration;
+use tokio::time::sleep;
 use log::info;
 use tokio;
 use tokio_postgres::{Error as PostgresError, NoTls};
@@ -112,6 +114,46 @@ impl Database {
             migrations_dir_path,
         })
     }
+
+
+
+    pub async fn reconnect(&mut self,  credentials: DatabaseCredentials ) -> Result<(), PostgresError> {
+        let max_retries = 5;
+        let mut attempt = 0;
+        let conn_url = credentials.build_connection_url();
+
+        while attempt < max_retries {
+            info!("Attempt {}: Reconnecting to database...", attempt + 1);
+
+            match tokio_postgres::connect(&conn_url, NoTls).await {
+                Ok((client, connection)) => {
+                    // Spawn a task to keep the connection alive
+                    tokio::spawn(async move {
+                        if let Err(e) = connection.await {
+                            eprintln!("postgres connection error: {}", e);
+                        }
+                    });
+
+                    self.client = client; // Replace old client with the new one
+                    info!("Reconnection successful.");
+                    return Ok(());
+                }
+                Err(e) => {
+                  
+                    attempt += 1;
+
+                    if attempt == max_retries {
+                        return Err( e.into() )
+                    }
+                      eprintln!("Reconnection failed: {}. Retrying...", e);
+                    sleep(Duration::from_secs(2_u64.pow(attempt))).await; // Exponential backoff
+                }
+            }
+        }
+
+       Ok(())  //should error ? 
+    }
+
 
     fn read_migration_files(migrations_dir_path: Option<String>) -> Migrations {
         let mut migrations = Migrations {
