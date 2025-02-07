@@ -1,3 +1,5 @@
+use crate::db::postgres::models::model::PostgresModelError;
+use tokio::time::timeout;
 use tokio::time::Duration;
 use tokio::time::sleep;
 use log::info;
@@ -35,6 +37,7 @@ impl MigrationAsStr for MigrationDefinition {
 pub struct Database {
     pub client: tokio_postgres::Client,
     pub migrations_dir_path: Option<String>,
+    pub reconnection_url:  String  , 
 }
 
 #[derive(Debug,Clone)]
@@ -113,15 +116,16 @@ impl Database {
         Ok(Database {
             client,
             migrations_dir_path,
+            reconnection_url:  conn_url.clone() 
         })
     }
 
 
 
-    pub async fn reconnect(&mut self,  conn_url: String,    /*credentials: DatabaseCredentials */ ) -> Result<(), PostgresError> {
+    pub async fn reconnect(&mut self  ) -> Result<(), PostgresError> {
         let max_retries = 5;
         let mut attempt = 0;
-       // let conn_url = credentials.build_connection_url();
+         let conn_url = self.reconnection_url.clone() ;
 
         while attempt < max_retries {
             info!("Attempt {}: Reconnecting to database...", attempt + 1);
@@ -258,6 +262,46 @@ impl Database {
         Ok(rows)
     }
 
+      pub async fn query_with_reconnect(
+        &mut self,
+        query: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+        max_tries: usize 
+    ) -> Result<Vec<tokio_postgres::Row>, PostgresModelError> {
+
+        let mut attempts = 0;
+
+        loop {
+
+            attempts += 1; 
+
+            let insert_result = timeout(
+                Duration::from_secs(5),
+                self.client.query(query, params),
+            ).await;
+
+            match insert_result {
+                Ok(Ok(rows)) => return Ok(rows),
+                Ok(Err(e)) => {
+                    eprintln!("Database error: {:?}", e);
+                    return Err(e .into());
+                },
+                Err( _ ) => {
+                    eprintln!("Database timeout occurred.");
+                    let _reconnect_result = self.reconnect().await;
+
+                    if attempts == max_tries {
+
+                        return Err(PostgresModelError::Timeout ) ;
+                    }
+                    // After reconnection, the loop will continue to retry the query
+                }
+            }
+        }
+    }
+
+
+
     pub async fn query_one(
         &self,
         query: &str,
@@ -266,6 +310,46 @@ impl Database {
         let rows = self.client.query_one(query, params).await?;
         Ok(rows)
     }
+
+ 
+    pub async fn query_one_with_reconnect(
+        &mut self,
+        query: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+        max_tries: usize 
+    ) -> Result<tokio_postgres::Row, PostgresModelError> {
+
+        let mut attempts = 0;
+
+        loop {
+
+            attempts += 1; 
+
+            let insert_result = timeout(
+                Duration::from_secs(5),
+                self.client.query_one(query, params),
+            ).await;
+
+            match insert_result {
+                Ok(Ok(row)) => return Ok(row),
+                Ok(Err(e)) => {
+                    eprintln!("Database error: {:?}", e);
+                    return Err(e .into());
+                },
+                Err( _ ) => {
+                    eprintln!("Database timeout occurred.");
+                    let _reconnect_result = self.reconnect().await;
+
+                    if attempts == max_tries {
+
+                        return Err(PostgresModelError::Timeout ) ;
+                    }
+                    // After reconnection, the loop will continue to retry the query
+                }
+            }
+        }
+    }
+
 
     //use for insert, update, etc
     pub async fn execute(
