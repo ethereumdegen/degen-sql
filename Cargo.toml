@@ -1,6 +1,6 @@
 [package]
 name = "degen-sql"
-version = "0.1.12"
+version = "0.1.13"
  
 edition = "2021" 
 description = "A postgres database engine for rust that builds on top of tokio-postgres"
