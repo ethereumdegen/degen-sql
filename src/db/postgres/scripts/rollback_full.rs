@@ -13,8 +13,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let credentials = DatabaseCredentials::from_env();
 
             let conn_url = credentials.build_connection_url();
+            
+                let mut database = Database::new(conn_url, None) ? ;
 
-            let mut database = Database::connect(conn_url, None).await?;
 
             let _migration = database.rollback_full().await?;
 
