@@ -1,3 +1,4 @@
+use tokio_postgres::Client;
 use crate::db::postgres::models::model::PostgresModelError;
 use tokio::time::timeout;
 use tokio::time::Duration;
@@ -34,9 +35,10 @@ impl MigrationAsStr for MigrationDefinition {
 }
 
 pub struct Database {
-    pub client: tokio_postgres::Client,
+  //  pub client: Option<  tokio_postgres::Client > ,
     pub migrations_dir_path: Option<String>,
-    pub reconnection_url:  String  , 
+    pub connection_url:  String  , 
+   
     pub max_reconnect_attempts: u32, 
     pub timeout_duration: Duration, 
 }
@@ -93,17 +95,35 @@ struct PostgresInput<'a> {
 }
 
 impl Database {
+
+    pub fn new(
+
+         conn_url: String, 
+         migrations_dir_path: Option<String>,
+     ) -> Result<Database, PostgresError> {
+
+
+
+        Ok(Database {
+            //client: None,  
+            migrations_dir_path,
+            connection_url:  conn_url.clone() ,
+            max_reconnect_attempts: 3 ,
+            timeout_duration: Duration::from_secs( 5 )
+        })
+
+    }
+
     pub async fn connect(
        // credentials: DatabaseCredentials,
-       conn_url: String, 
-        migrations_dir_path: Option<String>,
-    ) -> Result<Database, PostgresError> {
+       &  self 
+    ) -> Result<Client, PostgresError> {
         // Define the connection URL.
        // let conn_url = credentials.build_connection_url();
 
-        info!("Connecting to db: {}", conn_url);
+        info!("Connecting to db: {}", self.connection_url);
 
-        let (client, connection) = tokio_postgres::connect(&conn_url, NoTls).await?;
+        let (client, connection) = tokio_postgres::connect(&self.connection_url, NoTls).await?;
 
         // The connection object performs the actual communication with the database,
         // so spawn it off to run on its own.
@@ -114,21 +134,17 @@ impl Database {
             }
         });
 
-        Ok(Database {
-            client,
-            migrations_dir_path,
-            reconnection_url:  conn_url.clone() ,
-            max_reconnect_attempts: 3 ,
-            timeout_duration: Duration::from_secs( 5 )
-        })
+     //   self.client = Some(client);
+
+        Ok( client )
     }
 
 
 
-    pub async fn reconnect(&mut self  ) -> Result<(), PostgresError> {
+    pub async fn reconnect(&mut self  ) -> Result<Option< Client >, PostgresError> {
         let max_retries = 5;
         let mut attempt = 0;
-         let conn_url = self.reconnection_url.clone() ;
+         let conn_url = self.connection_url.clone() ;
 
         while attempt < max_retries {
             info!("Attempt {}: Reconnecting to database...", attempt + 1);
@@ -142,9 +158,9 @@ impl Database {
                         }
                     });
 
-                    self.client = client; // Replace old client with the new one
+                //    self.client = Some(client); // Replace old client with the new one
                     info!("Reconnection successful.");
-                    return Ok(());
+                    return Ok( Some(client) );
                 }
                 Err(e) => {
                   
@@ -159,7 +175,7 @@ impl Database {
             }
         }
 
-       Ok(())  //should error ? 
+       Ok(None)  //should error ? 
     }
 
 
@@ -215,7 +231,7 @@ impl Database {
     }
 
     pub async fn migrate(&mut self) -> Result<(), Box<dyn Error>> {
-        let client = &mut self.client;
+        let client = &mut self.connect().await?;
 
         let migrations_dir_path = self.migrations_dir_path.clone();
         let mut migrations: Migrations = Self::read_migration_files(migrations_dir_path);
@@ -243,7 +259,7 @@ impl Database {
 
         let mut migrations: Migrations = Self::read_migration_files(migrations_dir_path);
 
-        let client = &mut self.client;
+            let client = &mut self.connect().await?;
 
         for down_migration in migrations.down.drain(..)
          {
@@ -256,21 +272,26 @@ impl Database {
         Ok(())
     }
 
-    pub async fn query(
+     pub async fn query(
         &self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
     ) -> Result<Vec<tokio_postgres::Row>, PostgresError> {
-        let rows = self.client.query(query, params).await?;
-        Ok(rows)
-    }
 
-      pub async fn query_with_reconnect(
+        let client = &self.connect().await?;
+
+        let rows = client.query(query, params).await?;
+        Ok(rows)
+    } 
+
+   /*  pub async fn query_and_connect(
         &mut self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)] 
        
     ) -> Result<Vec<tokio_postgres::Row>, PostgresModelError> {
+
+        let client = &mut self.connect().await?;
 
         let max_tries = self.max_reconnect_attempts; 
         let timeout_duration = self.timeout_duration;
@@ -283,7 +304,7 @@ impl Database {
 
             let insert_result = timeout(
                 timeout_duration,
-                self.client.query(query, params),
+                 client.query(query, params),
             ).await;
 
             match insert_result {
@@ -304,21 +325,24 @@ impl Database {
                 }
             }
         }
-    }
+    }*/
 
 
 
     pub async fn query_one(
-        &self,
+        & self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
     ) -> Result<tokio_postgres::Row, PostgresError> {
-        let rows = self.client.query_one(query, params).await?;
+
+          let client = &self.connect().await?;
+
+        let rows =  client.query_one(query, params).await?;
         Ok(rows)
     }
 
  
-    pub async fn query_one_with_reconnect(
+ /*   pub async fn query_one_with_reconnect(
         &mut self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
@@ -342,6 +366,8 @@ impl Database {
             match insert_result {
                 Ok(Ok(row)) => return Ok(row),
                 Ok(Err(e)) => {
+
+
                     eprintln!("Database error: {:?}", e);
                     return Err(e .into());
                 },
@@ -358,19 +384,24 @@ impl Database {
             }
         }
     }
-
+*/
 
     //use for insert, update, etc
     pub async fn execute(
-        &self,
+        &  self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
     ) -> Result<u64, PostgresError> {
-        let rows = self.client.execute(query, params).await?;
+
+          let client = &self.connect().await?;
+
+        
+
+        let rows = client.execute(query, params).await?;
         Ok(rows)
     }
     
-
+/*
     pub async fn execute_with_reconnect(
         &mut self,
         query: &str,
@@ -410,14 +441,16 @@ impl Database {
                 }
             }
         }
-    }
+    }*/
 
     async fn atomic_transaction(
-        &mut self,
+        &  self,
         steps: Vec<PostgresInput<'_>>,
     ) -> Result<(), PostgresError> {
+          let client = &mut self.connect().await?;
+
         // Start a transaction
-        let transaction = self.client.transaction().await?;
+        let transaction = client.transaction().await?;
 
         //for each step in steps
         for step in steps {

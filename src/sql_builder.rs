@@ -93,13 +93,13 @@ impl OrderingDirection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
+    use std::collections::HashMap;
     use std::sync::Arc;
    // use rust_decimal::Decimal;
 
     #[test]
     fn test_sql_builder() {
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        let mut where_params: HashMap<String, Arc<dyn ToSql + Sync>> = HashMap::new();
         where_params.insert("chain_id".to_string(), Arc::new(1_i64));
         where_params.insert("status".to_string(), Arc::new("active".to_string()));
 
