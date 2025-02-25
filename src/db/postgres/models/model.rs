@@ -1,3 +1,4 @@
+use crate::db::postgres::postgres_db::DatabaseError;
 use std::mem::discriminant;
 
 use serde_json::Error as SerdeJsonError;
@@ -12,6 +13,9 @@ pub enum PostgresModelError {
 
     #[error(transparent)]
     Postgres(#[from] PostgresError),
+
+      
+
 
     #[error(transparent)]
     SerdeJson(#[from] SerdeJsonError),

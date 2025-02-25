@@ -1,4 +1,4 @@
-use crate::db::postgres::postgres_db::Database;
+use crate::db::postgres::postgres_db::{Database, DatabaseError};
 
 use super::model::PostgresModelError;
 
@@ -12,7 +12,7 @@ pub struct Migration {
 pub struct MigrationsModel {}
 
 impl MigrationsModel {
-    pub async fn find(psql_db: &Database) -> Result<Vec<Migration>, PostgresModelError> {
+    pub async fn find(psql_db: &Database) -> Result<Vec<Migration>, DatabaseError> {
         let rows = psql_db
             .query(
                 "
@@ -47,7 +47,7 @@ impl MigrationsModel {
             }
             Err(e) => {
                 eprintln!("Database error: {:?}", e);
-                Err(PostgresModelError::Postgres(e))
+                Err(  e.into() )
             }
         }
     }

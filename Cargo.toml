@@ -1,9 +1,9 @@
 [package]
 name = "degen-sql"
-version = "0.1.16"
+version = "0.2.0"
  
 edition = "2021" 
-description = "A postgres database engine for rust that builds on top of tokio-postgres"
+description = "A postgres database engine for rust that builds on top of tokio-postgres and deadpool"
 license = "MIT"
 
 
@@ -24,6 +24,8 @@ log = "0.4.18"
 thiserror = "1.0.49"
 include_dir = "0.7.3"
 inquire = "0.6.2"
+deadpool-postgres = "0.14.1"
+deadpool = "0.12.2"
 
 
 [[bin]]

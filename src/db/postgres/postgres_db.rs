@@ -35,6 +35,9 @@ impl MigrationAsStr for MigrationDefinition {
 }
 
 pub struct Database {
+
+     pool: deadpool_postgres::Pool, // Or other pool implementation
+
   //  pub client: Option<  tokio_postgres::Client > ,
     pub migrations_dir_path: Option<String>,
     pub connection_url:  String  , 
@@ -42,6 +45,65 @@ pub struct Database {
     pub max_reconnect_attempts: u32, 
     pub timeout_duration: Duration, 
 }
+
+
+
+
+
+
+#[derive(Debug)]
+pub enum DatabaseError {
+     ConnectionFailed ,
+    PoolCreationFailed(String),
+    QueryFailed(tokio_postgres::Error),
+
+    RowParseError(String) , 
+
+    PostgresError(tokio_postgres::Error),
+    PoolError(deadpool::managed::PoolError<tokio_postgres::Error>),
+}
+
+impl From<tokio_postgres::Error> for DatabaseError {
+    fn from(error: tokio_postgres::Error) -> Self {
+        DatabaseError::PostgresError(error)
+    }
+}
+
+impl From<deadpool::managed::PoolError<tokio_postgres::Error>> for DatabaseError {
+    fn from(error: deadpool::managed::PoolError<tokio_postgres::Error>) -> Self {
+        DatabaseError::PoolError(error)
+    }
+}
+
+// First implement Display for your error type
+impl std::fmt::Display for DatabaseError {
+    fn fmt(&self, f: &mut  std::fmt::Formatter<'_>) ->  std::fmt::Result {
+        match self {
+            DatabaseError::ConnectionFailed  => write!(f, "Database connection failed"),
+            DatabaseError::PoolCreationFailed(msg) => write!(f, "Connection pool creation failed: {}", msg),
+            DatabaseError::QueryFailed(err) => write!(f, "Database query failed: {}", err),
+            DatabaseError::PoolError(err) => write!(f, "Pool error: {}", err),
+            DatabaseError::PostgresError( err ) =>  write!(f, "Postgres error: {}", err),
+            DatabaseError::RowParseError( msg ) => write!(f, "row parse error: {}", msg),
+            // Handle other variants
+        }
+    }
+}
+
+// Then implement the Error trait
+impl Error for DatabaseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            DatabaseError::QueryFailed(err) => Some(err),
+            // For PoolError, you'd need to check if it implements Error
+            // Otherwise return None for this variant
+            _ => None,
+        }
+    }
+}
+
+
+
 
 #[derive(Debug,Clone)]
 pub struct DatabaseCredentials {
@@ -95,24 +157,37 @@ struct PostgresInput<'a> {
 }
 
 impl Database {
-
     pub fn new(
-
-         conn_url: String, 
-         migrations_dir_path: Option<String>,
-     ) -> Result<Database, PostgresError> {
-
-
-
+        conn_url: String, 
+        migrations_dir_path: Option<String>,
+    ) -> Result<Database, DatabaseError> {
+        // Parse the connection config from the URL
+        let config: tokio_postgres::Config = conn_url.parse()
+            .map_err(|_e| DatabaseError::ConnectionFailed )?;
+            
+        // Create a manager using the config
+        let manager = deadpool_postgres::Manager::new(config, tokio_postgres::NoTls);
+        
+        // Create the pool with builder pattern
+        let pool = deadpool_postgres::Pool::builder(manager)
+            .max_size(16)
+            .build()
+            .map_err(|e| DatabaseError::PoolCreationFailed(e.to_string()))?;
+        
         Ok(Database {
-            //client: None,  
+            pool,
             migrations_dir_path,
-            connection_url:  conn_url.clone() ,
-            max_reconnect_attempts: 3 ,
-            timeout_duration: Duration::from_secs( 5 )
+            connection_url: conn_url,
+            max_reconnect_attempts: 3,
+            timeout_duration: Duration::from_secs(5)
         })
-
     }
+}
+
+
+impl Database {
+
+   
 
     pub async fn connect(
        // credentials: DatabaseCredentials,
@@ -140,7 +215,7 @@ impl Database {
     }
 
 
-
+/*
     pub async fn reconnect(&mut self  ) -> Result<Option< Client >, PostgresError> {
         let max_retries = 5;
         let mut attempt = 0;
@@ -176,7 +251,7 @@ impl Database {
         }
 
        Ok(None)  //should error ? 
-    }
+    }*/
 
 
     fn read_migration_files(migrations_dir_path: Option<String>) -> Migrations {
@@ -276,174 +351,149 @@ impl Database {
         &self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-    ) -> Result<Vec<tokio_postgres::Row>, PostgresError> {
+    ) -> Result<Vec<tokio_postgres::Row>, DatabaseError> {
 
-        let client = &self.connect().await?;
+        /*let client = &self.connect().await?;
 
         let rows = client.query(query, params).await?;
+        Ok(rows)*/
+
+         // Get a client from the pool
+        let client = self.pool.get().await?;
+        
+        // Execute the query and let the client be dropped automatically afterward
+        let rows = client.query(query, params).await?;
+        
         Ok(rows)
+
     } 
-
-   /*  pub async fn query_and_connect(
-        &mut self,
-        query: &str,
-        params: &[&(dyn tokio_postgres::types::ToSql + Sync)] 
-       
-    ) -> Result<Vec<tokio_postgres::Row>, PostgresModelError> {
-
-        let client = &mut self.connect().await?;
-
-        let max_tries = self.max_reconnect_attempts; 
-        let timeout_duration = self.timeout_duration;
-
-        let mut attempts = 0;
-
-        loop {
-
-            attempts += 1; 
-
-            let insert_result = timeout(
-                timeout_duration,
-                 client.query(query, params),
-            ).await;
-
-            match insert_result {
-                Ok(Ok(rows)) => return Ok(rows),
-                Ok(Err(e)) => {
-                    eprintln!("Database error: {:?}", e);
-                    return Err(e .into());
-                },
-                Err( _ ) => {
-                    eprintln!("Database timeout occurred.");
-                    let _reconnect_result = self.reconnect().await;
-
-                    if attempts == max_tries {
-
-                        return Err(PostgresModelError::Timeout ) ;
-                    }
-                    // After reconnection, the loop will continue to retry the query
-                }
-            }
-        }
-    }*/
-
-
+ 
 
     pub async fn query_one(
         & self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-    ) -> Result<tokio_postgres::Row, PostgresError> {
-
+    ) -> Result<tokio_postgres::Row, DatabaseError> {
+            /*
           let client = &self.connect().await?;
 
         let rows =  client.query_one(query, params).await?;
         Ok(rows)
-    }
 
+        */
+
+
+         let client = self.pool.get().await ?;
+        
+        // Execute the query and let the client be dropped automatically afterward
+        let row = client.query_one(query, params).await?;
+        
+        Ok(row)
+    }
  
- /*   pub async fn query_one_with_reconnect(
-        &mut self,
-        query: &str,
-        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-       
-    ) -> Result<tokio_postgres::Row, PostgresModelError> {
-
-        let timeout_duration = self.timeout_duration;
-
-        let max_tries = self.max_reconnect_attempts; 
-        let mut attempts = 0;
-
-        loop {
-
-            attempts += 1; 
-
-            let insert_result = timeout(
-                timeout_duration,
-                self.client.query_one(query, params),
-            ).await;
-
-            match insert_result {
-                Ok(Ok(row)) => return Ok(row),
-                Ok(Err(e)) => {
-
-
-                    eprintln!("Database error: {:?}", e);
-                    return Err(e .into());
-                },
-                Err( _ ) => {
-                    eprintln!("Database timeout occurred.");
-                    let _reconnect_result = self.reconnect().await;
-
-                    if attempts == max_tries {
-
-                        return Err(PostgresModelError::Timeout ) ;
-                    }
-                    // After reconnection, the loop will continue to retry the query
-                }
-            }
-        }
-    }
-*/
-
     //use for insert, update, etc
     pub async fn execute(
         &  self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-    ) -> Result<u64, PostgresError> {
-
+    ) -> Result<u64, DatabaseError> {
+        /*
           let client = &self.connect().await?;
 
         
 
         let rows = client.execute(query, params).await?;
-        Ok(rows)
-    }
+        Ok(rows)*/
+
+
+         // Get a client from the pool
+        let client = self.pool.get().await?;
+        
+        // Execute the query and let the client be dropped automatically afterward
+        let count = client.execute(query, params).await?;
+        
+        Ok(count)
+
+
+    }   
+
+
+
+    pub async fn check_connection(&self) -> Result<bool, DatabaseError> {
+    // Get a client from the pool
+    let client = self.pool.get().await?;
     
-/*
-    pub async fn execute_with_reconnect(
-        &mut self,
+    // Execute a simple query to check the connection
+    match client.execute("SELECT 1", &[]).await {
+        Ok(_) => Ok(true),
+        Err(e) => Err(DatabaseError::from(e))
+    }
+}
+
+    pub async fn recreate_pool(&mut self) -> Result<(), DatabaseError> {
+        // Parse the connection config from the URL
+        let config: tokio_postgres::Config = self.connection_url.parse()
+            .map_err(|_e| DatabaseError::ConnectionFailed)?;
+            
+        // Create a manager using the config
+        let manager = deadpool_postgres::Manager::new(config, tokio_postgres::NoTls);
+        
+        // Create a new pool
+        let new_pool = deadpool_postgres::Pool::builder(manager)
+            .max_size(16)
+            .build()
+            .map_err(|e| DatabaseError::PoolCreationFailed(e.to_string()))?;
+        
+        // Replace the old pool
+        self.pool = new_pool;
+        
+        Ok(())
+    }
+
+         
+     pub async fn query_with_timeout(
+        &self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-        //timeout_duration: Duration,
-    ) -> Result<u64, PostgresModelError> {
+    ) -> Result<Vec<tokio_postgres::Row>, DatabaseError> {
+        match timeout(self.timeout_duration, self.query(query, params)).await {
+            Ok(result) => result,
+            Err(_) => Err(DatabaseError::ConnectionFailed) // Timeout occurred
+        }
+    }
 
-         let timeout_duration = self.timeout_duration;
-         
-        let max_tries = self.max_reconnect_attempts; 
+    pub async fn query_with_retry(
+        &self,
+        query: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+    ) -> Result<Vec<tokio_postgres::Row>, DatabaseError> {
         let mut attempts = 0;
-
-        loop {
-
-            attempts += 1; 
-
-            let insert_result = timeout(
-                timeout_duration,
-                self.client.execute(query, params),
-            ).await;
-
-            match insert_result {
-                Ok(Ok(row)) => return Ok(row),
-                Ok(Err(e)) => {
-                    eprintln!("Database error: {:?}", e);
-                    return Err(e .into());
-                },
-                Err( _ ) => {
-                    eprintln!("Database timeout occurred.");
-                    let _reconnect_result = self.reconnect().await;
-
-                    if attempts == max_tries {
-
-                        return Err(PostgresModelError::Timeout ) ;
+        
+        while attempts < self.max_reconnect_attempts {
+            match self.query(query, params).await {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    // If it's a connection error, retry
+                    if let DatabaseError::PoolError(_) = e {
+                        attempts += 1;
+                        if attempts >= self.max_reconnect_attempts {
+                            return Err(e);
+                        }
+                        // Wait before retrying
+                        sleep(Duration::from_secs(2_u64.pow(attempts))).await;
+                    } else {
+                        // For other errors, return immediately
+                        return Err(e);
                     }
-                    // After reconnection, the loop will continue to retry the query
                 }
             }
         }
-    }*/
+        
+        Err(DatabaseError::ConnectionFailed)
+    }
 
-    async fn atomic_transaction(
+
+    /*async fn atomic_transaction(
         &  self,
         steps: Vec<PostgresInput<'_>>,
     ) -> Result<(), PostgresError> {
@@ -469,7 +519,7 @@ impl Database {
         transaction.commit().await?;
         //return ok
         Ok(())
-    }
+    }*/
 }
 
 pub fn try_get_option<'a, T: tokio_postgres::types::FromSql<'a>>(
