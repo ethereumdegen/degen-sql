@@ -1,4 +1,4 @@
-use crate::db::postgres::postgres_db::DatabaseError;
+ 
 use std::mem::discriminant;
 
 use serde_json::Error as SerdeJsonError;
@@ -23,6 +23,25 @@ pub enum PostgresModelError {
     #[error("Error parsing row for database: {0:?}")]
     RowParseError(Option<String>),
 
+    #[error("ConnectionFailed  ")]
+     ConnectionFailed ,
+
+      #[error("PoolCreationFailed {0:?}")]
+
+    PoolCreationFailed(String),
+
+
+     #[error("QueryFailed {0:?}")]
+    QueryFailed(tokio_postgres::Error),
+
+    
+     #[error("PostgresError {0:?}")]
+    PostgresError(tokio_postgres::Error),
+
+         #[error("PoolError {0:?}")]
+    PoolError(deadpool::managed::PoolError<tokio_postgres::Error>),
+
+
 }
 
 impl PartialEq for PostgresModelError {
@@ -32,3 +51,10 @@ impl PartialEq for PostgresModelError {
 }
 
 impl Eq for PostgresModelError {}
+ 
+
+impl From<deadpool::managed::PoolError<tokio_postgres::Error>> for PostgresModelError {
+    fn from(error: deadpool::managed::PoolError<tokio_postgres::Error>) -> Self {
+        PostgresModelError::PoolError(error)
+    }
+}

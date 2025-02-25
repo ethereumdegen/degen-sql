@@ -50,7 +50,7 @@ pub struct Database {
 
 
 
-
+/*
 #[derive(Debug)]
 pub enum DatabaseError {
      ConnectionFailed ,
@@ -101,7 +101,7 @@ impl Error for DatabaseError {
         }
     }
 }
-
+*/
 
 
 
@@ -160,10 +160,10 @@ impl Database {
     pub fn new(
         conn_url: String, 
         migrations_dir_path: Option<String>,
-    ) -> Result<Database, DatabaseError> {
+    ) -> Result<Database, PostgresModelError> {
         // Parse the connection config from the URL
         let config: tokio_postgres::Config = conn_url.parse()
-            .map_err(|_e| DatabaseError::ConnectionFailed )?;
+            .map_err(|_e| PostgresModelError::ConnectionFailed )?;
             
         // Create a manager using the config
         let manager = deadpool_postgres::Manager::new(config, tokio_postgres::NoTls);
@@ -172,7 +172,7 @@ impl Database {
         let pool = deadpool_postgres::Pool::builder(manager)
             .max_size(16)
             .build()
-            .map_err(|e| DatabaseError::PoolCreationFailed(e.to_string()))?;
+            .map_err(|e| PostgresModelError::PoolCreationFailed(e.to_string()))?;
         
         Ok(Database {
             pool,
@@ -351,7 +351,7 @@ impl Database {
         &self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-    ) -> Result<Vec<tokio_postgres::Row>, DatabaseError> {
+    ) -> Result<Vec<tokio_postgres::Row>, PostgresModelError> {
 
         /*let client = &self.connect().await?;
 
@@ -373,7 +373,7 @@ impl Database {
         & self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-    ) -> Result<tokio_postgres::Row, DatabaseError> {
+    ) -> Result<tokio_postgres::Row, PostgresModelError> {
             /*
           let client = &self.connect().await?;
 
@@ -396,7 +396,7 @@ impl Database {
         &  self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-    ) -> Result<u64, DatabaseError> {
+    ) -> Result<u64, PostgresModelError> {
         /*
           let client = &self.connect().await?;
 
@@ -419,21 +419,21 @@ impl Database {
 
 
 
-    pub async fn check_connection(&self) -> Result<bool, DatabaseError> {
+    pub async fn check_connection(&self) -> Result<bool, PostgresModelError> {
     // Get a client from the pool
     let client = self.pool.get().await?;
     
     // Execute a simple query to check the connection
     match client.execute("SELECT 1", &[]).await {
         Ok(_) => Ok(true),
-        Err(e) => Err(DatabaseError::from(e))
+        Err(e) => Err(PostgresModelError::from(e))
     }
 }
 
-    pub async fn recreate_pool(&mut self) -> Result<(), DatabaseError> {
+    pub async fn recreate_pool(&mut self) -> Result<(), PostgresModelError> {
         // Parse the connection config from the URL
         let config: tokio_postgres::Config = self.connection_url.parse()
-            .map_err(|_e| DatabaseError::ConnectionFailed)?;
+            .map_err(|_e| PostgresModelError::ConnectionFailed)?;
             
         // Create a manager using the config
         let manager = deadpool_postgres::Manager::new(config, tokio_postgres::NoTls);
@@ -442,7 +442,7 @@ impl Database {
         let new_pool = deadpool_postgres::Pool::builder(manager)
             .max_size(16)
             .build()
-            .map_err(|e| DatabaseError::PoolCreationFailed(e.to_string()))?;
+            .map_err(|e| PostgresModelError::PoolCreationFailed(e.to_string()))?;
         
         // Replace the old pool
         self.pool = new_pool;
@@ -455,10 +455,10 @@ impl Database {
         &self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-    ) -> Result<Vec<tokio_postgres::Row>, DatabaseError> {
+    ) -> Result<Vec<tokio_postgres::Row>, PostgresModelError> {
         match timeout(self.timeout_duration, self.query(query, params)).await {
             Ok(result) => result,
-            Err(_) => Err(DatabaseError::ConnectionFailed) // Timeout occurred
+            Err(_) => Err(PostgresModelError::ConnectionFailed) // Timeout occurred
         }
     }
 
@@ -466,7 +466,7 @@ impl Database {
         &self,
         query: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-    ) -> Result<Vec<tokio_postgres::Row>, DatabaseError> {
+    ) -> Result<Vec<tokio_postgres::Row>, PostgresModelError> {
         let mut attempts = 0;
         
         while attempts < self.max_reconnect_attempts {
@@ -474,7 +474,7 @@ impl Database {
                 Ok(result) => return Ok(result),
                 Err(e) => {
                     // If it's a connection error, retry
-                    if let DatabaseError::PoolError(_) = e {
+                    if let PostgresModelError::PoolError(_) = e {
                         attempts += 1;
                         if attempts >= self.max_reconnect_attempts {
                             return Err(e);
@@ -489,7 +489,7 @@ impl Database {
             }
         }
         
-        Err(DatabaseError::ConnectionFailed)
+        Err(PostgresModelError::ConnectionFailed)
     }
 
 
