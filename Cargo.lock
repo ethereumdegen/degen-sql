@@ -231,7 +231,7 @@ dependencies = [
 
 [[package]]
 name = "degen-sql"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "deadpool",
  "deadpool-postgres",

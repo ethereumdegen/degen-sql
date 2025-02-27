@@ -14,8 +14,8 @@ pub enum PostgresModelError {
     #[error(transparent)]
     Postgres(#[from] PostgresError),
 
-      
-
+     #[error("UnexpectedRowsCount")]
+    UnexpectedRowsCount,
 
     #[error(transparent)]
     SerdeJson(#[from] SerdeJsonError),
