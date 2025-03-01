@@ -1,6 +1,6 @@
 [package]
 name = "degen-sql"
-version = "0.2.2"
+version = "0.2.4"
  
 edition = "2021" 
 description = "A postgres database engine for rust that builds on top of tokio-postgres and deadpool"
@@ -26,6 +26,13 @@ include_dir = "0.7.3"
 inquire = "0.6.2"
 deadpool-postgres = "0.14.1"
 deadpool = "0.12.2"
+
+# Optional dependencies
+utoipa = { version = "4.2.0", optional = true }
+
+[features]
+# Define optional features
+utoipa-schema = ["dep:utoipa"]
 
 
 [[bin]]
