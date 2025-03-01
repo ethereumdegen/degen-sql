@@ -4,6 +4,7 @@ use tokio_postgres::types::ToSql;
 use tokio_postgres::Row;
 use crate::sql_builder::{SqlBuilder, SqlStatementBase, OrderingDirection};
 use crate::pagination::PaginationData;
+use crate::tiny_safe_string::TinySafeString;
 use super::model::PostgresModelError;
 use deadpool_postgres::Client as Database;
 
@@ -49,14 +50,14 @@ impl PaymentsModel {
         pagination: Option<&PaginationData>,
         psql_db: &Database,
     ) -> Result<Vec<Payment>, PostgresModelError> {
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("invoice_id".to_string(), Arc::new(invoice_id));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("invoice_id").unwrap(), Arc::new(invoice_id));
         
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectAll,
             table_name: "payments".to_string(),
             where_params,
-            order: Some(("created_at".to_string(), OrderingDirection::DESC)),
+            order: Some((TinySafeString::new("created_at").unwrap(), OrderingDirection::DESC)),
             limit: None,
             pagination: pagination.cloned(),
         };
@@ -87,15 +88,15 @@ impl PaymentsModel {
         pagination: Option<&PaginationData>,
         psql_db: &Database,
     ) -> Result<Vec<Payment>, PostgresModelError> {
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("recipient_address".to_string(), Arc::new(recipient_address.to_string()));
-        where_params.insert("chain_id".to_string(), Arc::new(chain_id));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("recipient_address").unwrap(), Arc::new(recipient_address.to_string()));
+        where_params.insert(TinySafeString::new("chain_id").unwrap(), Arc::new(chain_id));
         
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectAll,
             table_name: "payments".to_string(),
             where_params,
-            order: Some(("created_at".to_string(), OrderingDirection::DESC)),
+            order: Some((TinySafeString::new("created_at").unwrap(), OrderingDirection::DESC)),
             limit: None,
             pagination: pagination.cloned(),
         };
@@ -123,8 +124,8 @@ impl PaymentsModel {
         invoice_id: i64,
         psql_db: &Database,
     ) -> Result<i64, PostgresModelError> {
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("invoice_id".to_string(), Arc::new(invoice_id));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("invoice_id").unwrap(), Arc::new(invoice_id));
         
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectCountAll,

@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use tokio_postgres::types::ToSql;
 use tokio_postgres::Row;
 use crate::sql_builder::{SqlBuilder, SqlStatementBase, OrderingDirection};
+use crate::tiny_safe_string::TinySafeString;
 use super::model::PostgresModelError;
 use deadpool_postgres::Client as Database;
 
@@ -41,16 +42,16 @@ impl PremiumStatusModel {
         psql_db: &Database,
     ) -> Result<Option<PremiumStatus>, PostgresModelError> {
         // Create where params
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("user_address".to_string(), Arc::new(user_address.to_string()));
-        where_params.insert("chain_id".to_string(), Arc::new(chain_id));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("user_address").unwrap(), Arc::new(user_address.to_string()));
+        where_params.insert(TinySafeString::new("chain_id").unwrap(), Arc::new(chain_id));
         
         // Build SQL query
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectAll,
             table_name: "premium_status".to_string(),
             where_params,
-            order: Some(("created_at".to_string(), OrderingDirection::DESC)),
+            order: Some((TinySafeString::new("created_at").unwrap(), OrderingDirection::DESC)),
             limit: Some(1), // Only need the most recent status
             pagination: None,
         };

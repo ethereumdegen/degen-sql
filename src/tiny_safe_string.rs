@@ -5,7 +5,7 @@ use serde::de::{self, Visitor};
 use std::ops::Deref;
 
 #[cfg_attr(feature = "utoipa-schema", derive(utoipa::ToSchema))]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TinySafeString(String);
 
 impl TinySafeString {

@@ -4,6 +4,7 @@ use tokio_postgres::types::ToSql;
 use tokio_postgres::Row;
 use crate::sql_builder::{SqlBuilder, SqlStatementBase, OrderingDirection};
 use crate::pagination::PaginationData;
+use crate::tiny_safe_string::TinySafeString;
 use super::model::PostgresModelError;
 use deadpool_postgres::Client as Database;
 
@@ -45,16 +46,16 @@ impl WebhookUrlsModel {
         psql_db: &Database,
     ) -> Result<Vec<WebhookUrl>, PostgresModelError> {
         // Create where params
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("owner_address".to_string(), Arc::new(owner_address.to_string()));
-        where_params.insert("chain_id".to_string(), Arc::new(chain_id));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("owner_address").unwrap(), Arc::new(owner_address.to_string()));
+        where_params.insert(TinySafeString::new("chain_id").unwrap(), Arc::new(chain_id));
         
         // Build SQL query
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectAll,
             table_name: "webhook_urls".to_string(),
             where_params,
-            order: Some(("created_at".to_string(), OrderingDirection::DESC)),
+            order: Some((TinySafeString::new("created_at").unwrap(), OrderingDirection::DESC)),
             limit: None,
             pagination: pagination.cloned(),
         };
@@ -89,10 +90,10 @@ impl WebhookUrlsModel {
         psql_db: &Database,
     ) -> Result<bool, PostgresModelError> {
         // First verify the webhook exists and belongs to the owner
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("id".to_string(), Arc::new(id));
-        where_params.insert("owner_address".to_string(), Arc::new(owner_address.to_string()));
-        where_params.insert("chain_id".to_string(), Arc::new(chain_id));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("id").unwrap(), Arc::new(id));
+        where_params.insert(TinySafeString::new("owner_address").unwrap(), Arc::new(owner_address.to_string()));
+        where_params.insert(TinySafeString::new("chain_id").unwrap(), Arc::new(chain_id));
         
         let count_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectCountAll,

@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use tokio_postgres::types::ToSql;
 use crate::pagination::PaginationData;
+use crate::tiny_safe_string::TinySafeString;
 
 
 /*
@@ -60,9 +61,9 @@ use crate::pagination::PaginationData;
 pub struct SqlBuilder {
 	pub statement_base: SqlStatementBase,
 	pub table_name : String, 
-	pub where_params: BTreeMap<String, Arc<dyn ToSql + Sync> > , 
+	pub where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync> > , 
 
-	pub order: Option<(String,OrderingDirection)> , 
+	pub order: Option<(TinySafeString,OrderingDirection)> , 
 
 	pub limit: Option< u32 >, 
 	
@@ -167,15 +168,15 @@ mod tests {
 
     #[test]
     fn test_sql_builder() {
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("chain_id".to_string(), Arc::new(1_i64));
-        where_params.insert("status".to_string(), Arc::new("active".to_string()));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("chain_id").unwrap(), Arc::new(1_i64));
+        where_params.insert(TinySafeString::new("status").unwrap(), Arc::new("active".to_string()));
 
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectAll,
             table_name: "teller_bids".to_string(),
             where_params,
-            order: Some(("created_at".to_string(), OrderingDirection::DESC)),
+            order: Some((TinySafeString::new("created_at").unwrap(), OrderingDirection::DESC)),
             limit: Some(10),
             pagination: None,
         };
@@ -195,8 +196,8 @@ mod tests {
     
     #[test]
     fn test_sql_builder_with_pagination() {
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("chain_id".to_string(), Arc::new(1_i64));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("chain_id").unwrap(), Arc::new(1_i64));
         
         let mut pagination = PaginationData::default();
         pagination.page = Some(2);
@@ -208,7 +209,7 @@ mod tests {
             statement_base: SqlStatementBase::SelectAll,
             table_name: "teller_bids".to_string(),
             where_params,
-            order: Some(("created_at".to_string(), OrderingDirection::DESC)), // Should be ignored
+            order: Some((TinySafeString::new("created_at").unwrap(), OrderingDirection::DESC)), // Should be ignored
             limit: Some(10), // Should be ignored
             pagination: Some(pagination),
         };
@@ -228,8 +229,8 @@ mod tests {
     
     #[test]
     fn test_sql_builder_with_pagination_method() {
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("status".to_string(), Arc::new("pending".to_string()));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("status").unwrap(), Arc::new("pending".to_string()));
         
         let mut pagination = PaginationData::default();
         pagination.page = Some(3);
@@ -260,8 +261,8 @@ mod tests {
     // Tests for the example queries in delete_by_apikey function
     #[test]
     fn test_sql_builder_count_query() {
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("apikey".to_string(), Arc::new("test-api-key".to_string()));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("apikey").unwrap(), Arc::new("test-api-key".to_string()));
         
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectCountAll,
@@ -287,8 +288,8 @@ mod tests {
     
     #[test]
     fn test_sql_builder_delete_query() {
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("apikey".to_string(), Arc::new("test-api-key".to_string()));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("apikey").unwrap(), Arc::new("test-api-key".to_string()));
         
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::Delete,
@@ -318,8 +319,8 @@ mod tests {
         
         // First query: "SELECT COUNT(*) FROM api_keys WHERE apikey = $1;"
         let apikey = "example-api-key";
-        let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert("apikey".to_string(), Arc::new(apikey.to_string()));
+        let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert(TinySafeString::new("apikey").unwrap(), Arc::new(apikey.to_string()));
         
         let count_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectCountAll,
@@ -366,7 +367,7 @@ mod tests {
                 table_name: "api_keys".to_string(),
                 where_params: {
                     let mut map = BTreeMap::new();
-                    map.insert("apikey".to_string(), Arc::new(apikey.to_string()));
+                    map.insert(TinySafeString::new("apikey").unwrap(), Arc::new(apikey.to_string()));
                     map
                 },
                 order: None,
@@ -388,7 +389,7 @@ mod tests {
                 table_name: "api_keys".to_string(),
                 where_params: {
                     let mut map = BTreeMap::new();
-                    map.insert("apikey".to_string(), Arc::new(apikey.to_string()));
+                    map.insert(TinySafeString::new("apikey").unwrap(), Arc::new(apikey.to_string()));
                     map
                 },
                 order: None,
