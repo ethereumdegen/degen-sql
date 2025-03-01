@@ -140,7 +140,7 @@ use super::*;
 
     #[test]
     fn test_valid_strings() {
-        assert!(TinySafeString::new("hello").is_ok());
+        assert!(TryInto::<TinySafeString>::try_into("hello").is_ok() );
         assert!(TinySafeString::new("hello123").is_ok());
         assert!(TinySafeString::new("HELLO").is_ok());
         assert!(TinySafeString::new("hello_world").is_ok());

@@ -45,15 +45,15 @@ impl InvoiceTemplatesModel {
     ) -> Result<Vec<InvoiceTemplate>, PostgresModelError> {
         // Create where params
         let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert(TinySafeString::new("owner_address").unwrap(), Arc::new(owner_address.to_string()));
-        where_params.insert(TinySafeString::new("chain_id").unwrap(), Arc::new(chain_id));
+        where_params.insert("owner_address".try_into().unwrap(), Arc::new(owner_address.to_string()));
+        where_params.insert( "chain_id".try_into().unwrap(), Arc::new(chain_id));
         
         // Build SQL query
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectAll,
             table_name: "invoice_templates".to_string(),
             where_params,
-            order: Some((TinySafeString::new("created_at").unwrap(), OrderingDirection::DESC)),
+            order: Some( ("created_at".try_into().unwrap(), OrderingDirection::DESC)),
             limit: None,
             pagination: pagination.cloned(),
         };
@@ -87,8 +87,8 @@ impl InvoiceTemplatesModel {
         psql_db: &Database,
     ) -> Result<i64, PostgresModelError> {
         let mut where_params: BTreeMap<TinySafeString, Arc<dyn ToSql + Sync>> = BTreeMap::new();
-        where_params.insert(TinySafeString::new("owner_address").unwrap(), Arc::new(owner_address.to_string()));
-        where_params.insert(TinySafeString::new("chain_id").unwrap(), Arc::new(chain_id));
+        where_params.insert("owner_address".try_into().unwrap(), Arc::new(owner_address.to_string()));
+        where_params.insert("chain_id".try_into().unwrap(), Arc::new(chain_id));
         
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectCountAll,

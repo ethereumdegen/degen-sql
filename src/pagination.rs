@@ -104,7 +104,7 @@ impl Default for PaginationData {
         Self {
             page: Some(1),
             page_size: Some(10),
-            sort_by: Some(TinySafeString::new("created_at").unwrap()),
+            sort_by: Some("created_at".try_into().unwrap()),
             sort_dir: Some(ColumnSortDir::Desc),
         }
     }
