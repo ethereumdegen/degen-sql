@@ -5,6 +5,58 @@ use std::collections::BTreeMap;
 use tokio_postgres::types::ToSql;
 use crate::pagination::PaginationData;
 
+
+/*
+
+
+
+
+
+
+
+
+   let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert("owner_address".to_string(), Arc::new(domain_address));
+        where_params.insert("chain_id".to_string(), Arc::new(chain_id));
+        
+        let sql_builder = SqlBuilder {
+            statement_base: SqlStatementBase::SelectAll,
+            table_name: "invoices".to_string(),
+            where_params,
+            order: Some(("created_at".to_string(), OrderingDirection::DESC)),
+            limit: None,
+            pagination: pagination.cloned(),
+        };
+        
+        // Build the SQL query and parameters
+        let (query, params) = sql_builder.build();
+        
+
+         let built_params = &params.iter().map(|x| &**x).collect::<Vec<_>>();
+
+        // Execute the query
+        let rows = psql_db.query(&query, &built_params).await?;
+
+        let mut invoices = Vec::new();
+        for row in rows {
+            match Invoice::from_row(&row) {
+                Ok(invoice) => invoices.push(invoice),
+                Err(e) => {
+                    eprintln!("Error parsing invoice row: {}", e);
+                    // Continue to next row instead of failing entirely
+                }
+            }
+        }
+
+        Ok(invoices)
+
+
+
+
+*/
+
+
+
 pub struct SqlBuilder {
 	pub statement_base: SqlStatementBase,
 	pub table_name : String, 
