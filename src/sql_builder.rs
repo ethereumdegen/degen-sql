@@ -399,10 +399,10 @@ mod tests {
     #[test]
     fn test_sql_builder_with_pagination() {
         let pagination = PaginationData {
-            page: 2,
-            items_per_page: 20,
-            order_column: "created_at".into(),
-            order_direction: OrderingDirection::DESC,
+            page: Some(2),
+            page_size: Some(20),
+            sort_by: Some("created_at".into()),
+            sort_dir: Some(crate::pagination::ColumnSortDir::Desc),
         };
         
         let mut where_params: BTreeMap<TinySafeString, (ComparisonType, Arc<dyn ToSql + Sync>)> = BTreeMap::new();
