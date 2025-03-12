@@ -1,21 +1,77 @@
 
-
 use std::sync::Arc;
 use std::collections::BTreeMap;
 
 use tokio_postgres::types::ToSql;
+use crate::pagination::PaginationData;
+use crate::tiny_safe_string::TinySafeString;
+
+
+/*
+
+
+
+
+
+
+
+
+   let mut where_params: BTreeMap<String, Arc<dyn ToSql + Sync>> = BTreeMap::new();
+        where_params.insert("owner_address".to_string(), Arc::new(domain_address));
+        where_params.insert("chain_id".to_string(), Arc::new(chain_id));
+        
+        let sql_builder = SqlBuilder {
+            statement_base: SqlStatementBase::SelectAll,
+            table_name: "invoices".to_string(),
+            where_params,
+            order: Some(("created_at".to_string(), OrderingDirection::DESC)),
+            limit: None,
+            pagination: pagination.cloned(),
+        };
+        
+        // Build the SQL query and parameters
+        let (query, params) = sql_builder.build();
+        
+
+         let built_params = &params.iter().map(|x| &**x).collect::<Vec<_>>();
+
+        // Execute the query
+        let rows = psql_db.query(&query, &built_params).await?;
+
+        let mut invoices = Vec::new();
+        for row in rows {
+            match Invoice::from_row(&row) {
+                Ok(invoice) => invoices.push(invoice),
+                Err(e) => {
+                    eprintln!("Error parsing invoice row: {}", e);
+                    // Continue to next row instead of failing entirely
+                }
+            }
+        }
+
+        Ok(invoices)
+
+
+
+
+*/
+
+
 
 pub struct SqlBuilder {
-
 	pub statement_base: SqlStatementBase,
 	pub table_name : String, 
-	pub where_params: BTreeMap<String, (ComparisonType, Arc<dyn ToSql + Sync>)>, 
+ 
+	pub where_params: BTreeMap<TinySafeString, (ComparisonType, Arc<dyn ToSql + Sync>)>, 
     
-	pub order: Option<(String,OrderingDirection)> , 
-
+	pub order: Option<(TinySafeString,OrderingDirection)> , 
+ 
+ 
+ 
 	pub limit: Option< u32 >, 
-
-
+	
+	// Optional pagination that overrides order, limit and offset when provided
+	pub pagination: Option<PaginationData>,
 }
 
 impl SqlBuilder {
@@ -43,17 +99,29 @@ impl SqlBuilder {
             query.push_str(&conditions.join(" AND "));
         }
 
-        // ORDER BY clause
-        if let Some((column, direction)) = &self.order {
-            query.push_str(&format!(" ORDER BY {} {}", column, direction.build()));
-        }
+        // Use pagination if provided, otherwise fall back to manual order and limit
+        if let Some(pagination) = &self.pagination {
+            // Append the pagination query part (includes ORDER BY, LIMIT, and OFFSET)
+            query.push_str(&format!(" {}", pagination.build_query_part()));
+        } else {
+            // ORDER BY clause
+            if let Some((column, direction)) = &self.order {
+                query.push_str(&format!(" ORDER BY {} {}", column, direction.build()));
+            }
 
-        // LIMIT clause
-        if let Some(limit) = self.limit {
-            query.push_str(&format!(" LIMIT {}", limit));
+            // LIMIT clause
+            if let Some(limit) = self.limit {
+                query.push_str(&format!(" LIMIT {}", limit));
+            }
         }
 
         ( query , params) 
+    }
+    
+    // Helper method to set pagination
+    pub fn with_pagination(mut self, pagination: PaginationData) -> Self {
+        self.pagination = Some(pagination);
+        self
     }
 }
 
@@ -89,6 +157,8 @@ impl ComparisonType {
 
 pub enum SqlStatementBase {
 	SelectAll,
+    SelectCountAll,
+    Delete
 }
 
 impl SqlStatementBase {
@@ -97,7 +167,9 @@ impl SqlStatementBase {
 
 		match self {
 
-			Self::SelectAll => "SELECT *" 
+			Self::SelectAll => "SELECT *" ,
+            Self::SelectCountAll => "SELECT COUNT(*)" ,
+            Self::Delete => "DELETE"
 
 		}.to_string() 
 	}
@@ -126,6 +198,10 @@ impl OrderingDirection {
 }
 
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,16 +210,17 @@ mod tests {
    
     #[test]
     fn test_sql_builder() {
-        let mut where_params: BTreeMap<String, (ComparisonType, Arc<dyn ToSql + Sync>)> = BTreeMap::new();
-        where_params.insert("chain_id".to_string(), (ComparisonType::EQ, Arc::new(1_i64) as Arc<dyn ToSql + Sync>));
-        where_params.insert("status".to_string(), (ComparisonType::EQ, Arc::new("active".to_string()) as Arc<dyn ToSql + Sync>));
+        let mut where_params: BTreeMap<TinySafeString, (ComparisonType, Arc<dyn ToSql + Sync>)> = BTreeMap::new();
+        where_params.insert("chain_id".into(), (ComparisonType::EQ, Arc::new(1_i64) as Arc<dyn ToSql + Sync>));
+        where_params.insert("status".into(), (ComparisonType::EQ, Arc::new("active".to_string()) as Arc<dyn ToSql + Sync>));
         
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectAll,
-            table_name: "teller_bids".to_string(),
+            table_name: "teller_bids".into(),
             where_params,
-            order: Some(("created_at".to_string(), OrderingDirection::DESC)),
+            order: Some(("created_at".into(), OrderingDirection::DESC)),
             limit: Some(10),
+               pagination: None,
         };
         
         let (query, params) = sql_builder.build();
@@ -156,17 +233,18 @@ mod tests {
     
     #[test]
     fn test_sql_builder_with_different_comparison_types() {
-        let mut where_params: BTreeMap<String, (ComparisonType, Arc<dyn ToSql + Sync>)> = BTreeMap::new();
-        where_params.insert("amount".to_string(), (ComparisonType::GT, Arc::new(1000_i64) as Arc<dyn ToSql + Sync>));
-        where_params.insert("created_at".to_string(), (ComparisonType::LTE, Arc::new("2023-01-01".to_string()) as Arc<dyn ToSql + Sync>));
-        where_params.insert("name".to_string(), (ComparisonType::LIKE, Arc::new("%test%".to_string()) as Arc<dyn ToSql + Sync>));
+        let mut where_params: BTreeMap<TinySafeString, (ComparisonType, Arc<dyn ToSql + Sync>)> = BTreeMap::new();
+        where_params.insert("amount".into(), (ComparisonType::GT, Arc::new(1000_i64) as Arc<dyn ToSql + Sync>));
+        where_params.insert("created_at".into(), (ComparisonType::LTE, Arc::new("2023-01-01".to_string()) as Arc<dyn ToSql + Sync>));
+        where_params.insert("name".into(), (ComparisonType::LIKE, Arc::new("%test%".to_string()) as Arc<dyn ToSql + Sync>));
         
         let sql_builder = SqlBuilder {
             statement_base: SqlStatementBase::SelectAll,
-            table_name: "transactions".to_string(),
+            table_name: "transactions".into(),
             where_params,
             order: None,
             limit: None,
+               pagination: None,
         };
         
         let (query, params) = sql_builder.build();
