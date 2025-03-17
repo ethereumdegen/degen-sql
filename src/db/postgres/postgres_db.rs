@@ -1,3 +1,4 @@
+use deadpool_postgres::Timeouts;
 use tokio_postgres::Client;
 use crate::db::postgres::models::model::PostgresModelError;
 use tokio::time::timeout;
@@ -168,12 +169,22 @@ impl Database {
             
         // Create a manager using the config
         let manager = deadpool_postgres::Manager::new(config, tokio_postgres::NoTls);
+
+
+        let deadpool_timeouts = Timeouts {
+            create: Some(Duration::from_secs(5)),
+            recycle: Some(Duration::from_secs(5)),
+            wait: Some(Duration::from_secs(5))
+        };  
         
         // Create the pool with builder pattern
         let pool = deadpool_postgres::Pool::builder(manager)
             .max_size( max_pool_connections )
+            .timeouts( deadpool_timeouts ) 
             .build()
             .map_err(|e| PostgresModelError::PoolCreationFailed(e.to_string()))?;
+ 
+
         
         Ok(Database {
             pool,
