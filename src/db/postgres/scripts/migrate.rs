@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let conn_url = credentials.build_connection_url();
 
-    let mut database = Database::new(conn_url, None) ? ;
+    let mut database = Database::new(conn_url,8, None) ? ;
 
     let _migration = database.migrate().await?;
 
