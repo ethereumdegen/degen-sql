@@ -159,6 +159,7 @@ struct PostgresInput<'a> {
 impl Database {
     pub fn new(
         conn_url: String, 
+        max_pool_connections: usize, 
         migrations_dir_path: Option<String>,
     ) -> Result<Database, PostgresModelError> {
         // Parse the connection config from the URL
@@ -170,7 +171,7 @@ impl Database {
         
         // Create the pool with builder pattern
         let pool = deadpool_postgres::Pool::builder(manager)
-            .max_size(16)
+            .max_size( max_pool_connections )
             .build()
             .map_err(|e| PostgresModelError::PoolCreationFailed(e.to_string()))?;
         
