@@ -49,61 +49,7 @@ pub struct Database {
 
 
 
-
-
-/*
-#[derive(Debug)]
-pub enum DatabaseError {
-     ConnectionFailed ,
-    PoolCreationFailed(String),
-    QueryFailed(tokio_postgres::Error),
-
-    RowParseError(String) , 
-
-    PostgresError(tokio_postgres::Error),
-    PoolError(deadpool::managed::PoolError<tokio_postgres::Error>),
-}
-
-impl From<tokio_postgres::Error> for DatabaseError {
-    fn from(error: tokio_postgres::Error) -> Self {
-        DatabaseError::PostgresError(error)
-    }
-}
-
-impl From<deadpool::managed::PoolError<tokio_postgres::Error>> for DatabaseError {
-    fn from(error: deadpool::managed::PoolError<tokio_postgres::Error>) -> Self {
-        DatabaseError::PoolError(error)
-    }
-}
-
-// First implement Display for your error type
-impl std::fmt::Display for DatabaseError {
-    fn fmt(&self, f: &mut  std::fmt::Formatter<'_>) ->  std::fmt::Result {
-        match self {
-            DatabaseError::ConnectionFailed  => write!(f, "Database connection failed"),
-            DatabaseError::PoolCreationFailed(msg) => write!(f, "Connection pool creation failed: {}", msg),
-            DatabaseError::QueryFailed(err) => write!(f, "Database query failed: {}", err),
-            DatabaseError::PoolError(err) => write!(f, "Pool error: {}", err),
-            DatabaseError::PostgresError( err ) =>  write!(f, "Postgres error: {}", err),
-            DatabaseError::RowParseError( msg ) => write!(f, "row parse error: {}", msg),
-            // Handle other variants
-        }
-    }
-}
-
-// Then implement the Error trait
-impl Error for DatabaseError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            DatabaseError::QueryFailed(err) => Some(err),
-            // For PoolError, you'd need to check if it implements Error
-            // Otherwise return None for this variant
-            _ => None,
-        }
-    }
-}
-*/
-
+ 
 
 
 #[derive(Debug,Clone)]
@@ -226,45 +172,7 @@ impl Database {
         Ok( client )
     }
 
-
-/*
-    pub async fn reconnect(&mut self  ) -> Result<Option< Client >, PostgresError> {
-        let max_retries = 5;
-        let mut attempt = 0;
-         let conn_url = self.connection_url.clone() ;
-
-        while attempt < max_retries {
-            info!("Attempt {}: Reconnecting to database...", attempt + 1);
-
-            match tokio_postgres::connect(&conn_url, NoTls).await {
-                Ok((client, connection)) => {
-                    // Spawn a task to keep the connection alive
-                    tokio::spawn(async move {
-                        if let Err(e) = connection.await {
-                            eprintln!("postgres connection error: {}", e);
-                        }
-                    });
-
-                //    self.client = Some(client); // Replace old client with the new one
-                    info!("Reconnection successful.");
-                    return Ok( Some(client) );
-                }
-                Err(e) => {
-                  
-                    attempt += 1;
-
-                    if attempt == max_retries {
-                        return Err( e.into() )
-                    }
-                      eprintln!("Reconnection failed: {}. Retrying...", e);
-                    sleep(Duration::from_secs(2_u64.pow(attempt))).await; // Exponential backoff
-                }
-            }
-        }
-
-       Ok(None)  //should error ? 
-    }*/
-
+ 
 
     fn read_migration_files(migrations_dir_path: Option<String>) -> Migrations {
         let mut migrations = Migrations {
@@ -441,7 +349,8 @@ impl Database {
         Err(e) => Err(PostgresModelError::from(e))
     }
 }
-
+    
+    /*
     pub async fn recreate_pool(&mut self) -> Result<(), PostgresModelError> {
         // Parse the connection config from the URL
         let config: tokio_postgres::Config = self.connection_url.parse()
@@ -502,36 +411,9 @@ impl Database {
         }
         
         Err(PostgresModelError::ConnectionFailed)
-    }
-
-
-    /*async fn atomic_transaction(
-        &  self,
-        steps: Vec<PostgresInput<'_>>,
-    ) -> Result<(), PostgresError> {
-          let client = &mut self.connect().await?;
-
-        // Start a transaction
-        let transaction = client.transaction().await?;
-
-        //for each step in steps
-        for step in steps {
-            //execute the step
-            let result = transaction.execute(&step.query, step.params).await;
-            //check if the result is ok
-            if result.is_err() {
-                //if not rollback
-                transaction.rollback().await?;
-                //return error
-                return Err(PostgresError::from(result.err().unwrap()));
-            }
-        }
-
-        //if all steps are ok commit
-        transaction.commit().await?;
-        //return ok
-        Ok(())
     }*/
+
+ 
 }
 
 pub fn try_get_option<'a, T: tokio_postgres::types::FromSql<'a>>(
